@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { mkdir, realpath } from "node:fs/promises";
 import path from "node:path";
-import { capText, parseOpencodeOutput } from "./parse.js";
+import { capText, classifyOpencodeRun, parseOpencodeOutput } from "./parse.js";
 import { resolveWorkspace } from "../shared/workspace.js";
 
 const MAX_BODY = 2_000_000;
@@ -121,17 +121,21 @@ function spawnOpencode(args: string[], cwd: string, timeoutSec: number, apiKey =
       settled = true;
       clearTimeout(timer);
       const parsed = parseOpencodeOutput(stdout);
-      const errors = [...parsed.errors];
-      if (spawnError) errors.push(spawnError.message);
-      if (timedOut) errors.push(`Timed out after ${timeoutSec} seconds`);
-      else if (exitCode && exitCode !== 0) errors.push(`OpenCode exited with code ${exitCode}`);
+      const classified = classifyOpencodeRun({
+        timedOut,
+        timeoutSec,
+        spawnError: spawnError?.message ?? null,
+        exitCode,
+        summary: parsed.summary,
+        sessionErrors: parsed.errors,
+      });
       const log = capText(`# stdout\n${stdout}\n# stderr\n${stderr}`, MAX_LOG);
       resolve({
-        ok: !timedOut && !spawnError && exitCode === 0 && parsed.errors.length === 0,
+        ok: classified.ok,
         timedOut,
         exitCode,
         summary: capText(parsed.summary, 20_000),
-        error: errors.length ? errors.join("\n") : null,
+        error: classified.error,
         log,
       });
     };

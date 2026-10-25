@@ -39,6 +39,28 @@ function errorText(error: unknown): string {
   return "Unknown OpenCode error";
 }
 
+export function classifyOpencodeRun(input: {
+  timedOut: boolean;
+  timeoutSec: number;
+  spawnError: string | null;
+  exitCode: number | null;
+  summary: string;
+  sessionErrors: string[];
+}): { ok: boolean; error: string | null } {
+  const messages = [...input.sessionErrors];
+  if (input.spawnError) messages.push(input.spawnError);
+  // `opencode run` exits 1 when any tool reports an error, and it keeps that code
+  // after the agent recovers and finishes. A finished answer with no session error
+  // is a successful run.
+  const recoveredToolError = input.exitCode === 1 && input.summary.trim().length > 0 && input.sessionErrors.length === 0;
+  if (input.timedOut) messages.push(`Timed out after ${input.timeoutSec} seconds`);
+  else if (input.exitCode && input.exitCode !== 0 && !recoveredToolError) {
+    messages.push(`OpenCode exited with code ${input.exitCode}`);
+  }
+  const ok = !input.timedOut && !input.spawnError && input.sessionErrors.length === 0 && (input.exitCode === 0 || recoveredToolError);
+  return { ok, error: messages.length ? messages.join("\n") : null };
+}
+
 export function capText(text: string, max: number): string {
   if (text.length <= max) return text;
   const omitted = text.length - max;
