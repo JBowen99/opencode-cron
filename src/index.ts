@@ -3,6 +3,7 @@ import { loadConfig } from "./config.js";
 import { createApp } from "./http.js";
 import { mountMcp } from "./mcp.js";
 import { createRuntime } from "./runtime.js";
+import { sandboxStatus } from "./sandbox-client.js";
 
 const config = loadConfig();
 const runtime = createRuntime(config);
@@ -11,6 +12,7 @@ mountMcp(app, runtime);
 
 const server = serve({ fetch: app.fetch, hostname: config.host, port: config.port }, (info) => {
   console.log(`OpenCron listening on ${info.address}:${info.port}`);
+  void sandboxStatus(config.sandboxUrl).then((message) => console.log(message));
   runtime.start();
 });
 
