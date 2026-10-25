@@ -57,6 +57,17 @@ export type SandboxRequest = {
   model?: string;
   agent?: string;
   timeoutSec: number;
+  apiKey?: string;
+};
+
+export type ServerSettings = {
+  timezone: string;
+  defaultModel: string | null;
+  goConnected: boolean;
+  goSource: "saved" | "environment" | null;
+  goKeyHint: string | null;
+  models: string[];
+  modelsError: string | null;
 };
 
 export type SandboxResult = {

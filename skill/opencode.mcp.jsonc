@@ -1,7 +1,7 @@
 {
   "mcp": {
     "servers": {
-      "opencode-cron": {
+      "opencron": {
         "type": "remote",
         "url": "https://<coolify-domain>/mcp",
         "oauth": false,

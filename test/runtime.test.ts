@@ -5,8 +5,10 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { after, test } from "node:test";
 import { loadConfig } from "../src/config.js";
-import { createRuntime, type Runner } from "../src/runtime.js";
-import type { SandboxResult } from "../src/types.js";
+import { JobError } from "../src/errors.js";
+import { modelIdsFromCatalog } from "../src/go-models.js";
+import { createRuntime, type GoModels, type Runner } from "../src/runtime.js";
+import type { SandboxRequest, SandboxResult } from "../src/types.js";
 
 const dirs: string[] = [];
 
@@ -75,14 +77,69 @@ test("catches up one missed run on startup", async () => {
   }
 });
 
-function runtimeAt(dataDir: string, runner: Runner) {
+test("connects Go and uses the saved timezone and model", async () => {
+  const seen: SandboxRequest[] = [];
+  const goModels: GoModels = async (apiKey) => {
+    if (apiKey === "rejected-key-value") throw new JobError("OpenCode Go rejected that API key", 401);
+    return ["opencode-go/kimi-k3", "opencode/big-pickle"];
+  };
+  const runtime = runtimeAt(
+    temp(),
+    async (input) => {
+      seen.push(input);
+      return okResult("ran");
+    },
+    goModels,
+  );
+  try {
+    await assert.rejects(() => runtime.connectGo("rejected-key-value"), /rejected/);
+    const rejected = await runtime.getSettings();
+    assert.equal(rejected.goConnected, false);
+    assert.equal(JSON.stringify(rejected).includes("rejected-key-value"), false);
+
+    const connected = await runtime.connectGo("oc_test_key_1234");
+    assert.equal(connected.goSource, "saved");
+    assert.equal(connected.goKeyHint, "1234");
+    assert.deepEqual(connected.models, ["opencode-go/kimi-k3"]);
+    assert.equal(JSON.stringify(connected).includes("oc_test_key_1234"), false);
+
+    await runtime.updateSettings({ timezone: "America/Denver", defaultModel: "opencode-go/kimi-k3" });
+    const job = runtime.createJob({
+      name: "Inbox",
+      prompt: "check the inbox",
+      schedule: "0 8 * * 1-5",
+      workspace: "notes",
+    });
+    assert.equal(job.timezone, "America/Denver");
+    runtime.requestRun(job.id);
+    await runtime.whenIdle();
+    assert.equal(seen[0]?.model, "opencode-go/kimi-k3");
+    assert.equal(seen[0]?.apiKey, "oc_test_key_1234");
+
+    const cleared = await runtime.disconnectGo();
+    assert.equal(cleared.goConnected, false);
+    assert.equal(cleared.goKeyHint, null);
+    await assert.rejects(() => runtime.updateSettings({ timezone: "Not/AZone" }), /Unknown timezone/);
+  } finally {
+    runtime.close();
+  }
+});
+
+test("reads Go model ids from the catalog", () => {
+  assert.deepEqual(modelIdsFromCatalog({ data: [{ id: "kimi-k3" }, { id: "opencode-go/glm-5.3" }, { id: "" }] }), [
+    "opencode-go/glm-5.3",
+    "opencode-go/kimi-k3",
+  ]);
+});
+
+function runtimeAt(dataDir: string, runner: Runner, goModels?: GoModels) {
   const config = loadConfig({
     CRON_TOKEN: "test-token-value",
     DATA_DIR: dataDir,
     DEFAULT_TIMEZONE: "UTC",
     SANDBOX_URL: "http://127.0.0.1:9",
   });
-  return createRuntime(config, runner);
+  return createRuntime(config, runner, goModels);
 }
 
 function sample(overrides: Record<string, string>) {
@@ -101,7 +158,7 @@ function okResult(summary: string): SandboxResult {
 }
 
 function temp(): string {
-  const dir = mkdtempSync(path.join(tmpdir(), "opencode-cron-"));
+  const dir = mkdtempSync(path.join(tmpdir(), "opencron-"));
   dirs.push(dir);
   return dir;
 }

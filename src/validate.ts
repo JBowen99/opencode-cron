@@ -8,6 +8,27 @@ const NAME_LIMIT = 80;
 const PROMPT_LIMIT = 100_000;
 const FIELD_LIMIT = 200;
 
+export function parseGoKey(value: unknown): string {
+  if (typeof value !== "string") throw new JobError("API key is required", 400);
+  const key = value.trim();
+  if (!key) throw new JobError("API key is required", 400);
+  if (key.length < 8 || key.length > 500 || /\s/.test(key)) throw new JobError("API key is not valid", 400);
+  return key;
+}
+
+export function parseSettingsUpdate(raw: { timezone?: unknown; defaultModel?: unknown }): {
+  timezone?: string;
+  defaultModel?: string | null;
+} {
+  const parsed: { timezone?: string; defaultModel?: string | null } = {};
+  if (raw.timezone !== undefined) {
+    if (typeof raw.timezone !== "string" || !raw.timezone.trim()) throw new JobError("Timezone is required", 400);
+    parsed.timezone = assertKnown(raw.timezone.trim());
+  }
+  if (raw.defaultModel !== undefined) parsed.defaultModel = optionalText(raw.defaultModel, "Model");
+  return parsed;
+}
+
 export function parseJobInput(raw: Partial<Record<keyof JobInput, unknown>>, fallbackTimezone: string): JobInput {
   return {
     name: requiredText(raw.name, "Name", NAME_LIMIT),

@@ -13,6 +13,7 @@ import {
   loginPage,
   noticePage,
   runPage,
+  settingsPage,
 } from "./html.js";
 import { publicJob, publicRun, type Runtime } from "./runtime.js";
 import { readFileSync } from "node:fs";
@@ -76,7 +77,37 @@ export function createApp(config: Config, runtime: Runtime, cssPath = path.join(
 
   app.get("/", (c) => c.html(jobsPage(runtime.listJobs())));
 
-  app.get("/jobs/new", (c) => c.html(jobFormPage(emptyForm(config.defaultTimezone))));
+  app.get("/settings", async (c) => c.html(settingsPage(await runtime.getSettings())));
+
+  app.post("/settings", async (c) => {
+    const body = await readForm(c);
+    try {
+      await runtime.updateSettings({ timezone: body.timezone, defaultModel: body.defaultModel });
+      return c.redirect("/settings", 303);
+    } catch (error) {
+      return c.html(settingsPage(await runtime.getSettings(), message(error)), status(error));
+    }
+  });
+
+  app.post("/settings/go", async (c) => {
+    const body = await readForm(c);
+    try {
+      await runtime.connectGo(body.apiKey ?? "");
+      return c.redirect("/settings", 303);
+    } catch (error) {
+      return c.html(settingsPage(await runtime.getSettings(), message(error)), status(error));
+    }
+  });
+
+  app.post("/settings/go/disconnect", async (c) => {
+    await runtime.disconnectGo();
+    return c.redirect("/settings", 303);
+  });
+
+  app.get("/jobs/new", (c) => {
+    const defaults = runtime.defaults();
+    return c.html(jobFormPage(emptyForm(defaults.timezone), undefined, undefined, defaults.defaultModel));
+  });
 
   app.post("/jobs", async (c) => {
     const body = await readForm(c);
@@ -84,7 +115,8 @@ export function createApp(config: Config, runtime: Runtime, cssPath = path.join(
       const job = runtime.createJob(body);
       return c.redirect(`/jobs/${job.id}`, 303);
     } catch (error) {
-      return c.html(jobFormPage(formValuesFromBody(body, config.defaultTimezone), message(error)), status(error));
+      const defaults = runtime.defaults();
+      return c.html(jobFormPage(formValuesFromBody(body, defaults.timezone), message(error), undefined, defaults.defaultModel), status(error));
     }
   });
 
@@ -100,7 +132,7 @@ export function createApp(config: Config, runtime: Runtime, cssPath = path.join(
   app.get("/jobs/:id/edit", (c) => {
     try {
       const job = runtime.getJob(c.req.param("id"));
-      return c.html(jobFormPage(formValuesFromJob(job), undefined, job.id));
+      return c.html(jobFormPage(formValuesFromJob(job), undefined, job.id, runtime.defaults().defaultModel));
     } catch (error) {
       return c.text(message(error), status(error));
     }
@@ -113,7 +145,8 @@ export function createApp(config: Config, runtime: Runtime, cssPath = path.join(
       runtime.updateJob(id, body);
       return c.redirect(`/jobs/${id}`, 303);
     } catch (error) {
-      return c.html(jobFormPage(formValuesFromBody(body, config.defaultTimezone), message(error), id), status(error));
+      const defaults = runtime.defaults();
+      return c.html(jobFormPage(formValuesFromBody(body, defaults.timezone), message(error), id, defaults.defaultModel), status(error));
     }
   });
 
@@ -164,6 +197,33 @@ export function createApp(config: Config, runtime: Runtime, cssPath = path.join(
   });
 
   app.get("/api/jobs", (c) => c.json(runtime.listJobs().map(publicJob)));
+
+  app.get("/api/settings", async (c) => c.json(await runtime.getSettings()));
+
+  app.put("/api/settings", async (c) => {
+    try {
+      return c.json(await runtime.updateSettings(await readJson(c)));
+    } catch (error) {
+      return fail(c, error);
+    }
+  });
+
+  app.post("/api/settings/go", async (c) => {
+    try {
+      const body = await readJson(c);
+      return c.json(await runtime.connectGo(body.apiKey));
+    } catch (error) {
+      return fail(c, error);
+    }
+  });
+
+  app.delete("/api/settings/go", async (c) => {
+    try {
+      return c.json(await runtime.disconnectGo());
+    } catch (error) {
+      return fail(c, error);
+    }
+  });
 
   app.post("/api/jobs", async (c) => {
     try {
@@ -283,8 +343,11 @@ function message(error: unknown): string {
   return "Something went wrong";
 }
 
-function status(error: unknown): 400 | 401 | 404 | 409 | 500 {
-  if (error instanceof JobError && (error.status === 400 || error.status === 401 || error.status === 404 || error.status === 409)) {
+function status(error: unknown): 400 | 401 | 404 | 409 | 500 | 502 {
+  if (
+    error instanceof JobError &&
+    (error.status === 400 || error.status === 401 || error.status === 404 || error.status === 409 || error.status === 502)
+  ) {
     return error.status;
   }
   return 500;

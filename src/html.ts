@@ -1,4 +1,5 @@
-import type { JobView, Run } from "./types.js";
+import { transcriptFromLog, type TranscriptItem } from "../shared/transcript.js";
+import type { JobView, Run, ServerSettings } from "./types.js";
 
 export type FormValues = {
   name: string;
@@ -23,8 +24,8 @@ export function loginPage(error?: string): string {
   return layout(
     "Sign in",
     `
-    <section box-="square" class="stack narrow">
-      <h1>opencode cron</h1>
+    <section box-="square" class="stack">
+      <h1><span class="prompt">&gt;</span> OpenCron</h1>
       <p>Enter the service token to open the job list.</p>
       ${error ? `<p class="fail">${esc(error)}</p>` : ""}
       <form method="post" action="/login">
@@ -73,7 +74,7 @@ export function jobsPage(jobs: JobView[]): string {
   );
 }
 
-export function jobFormPage(values: FormValues, error?: string, jobId?: string): string {
+export function jobFormPage(values: FormValues, error?: string, jobId?: string, defaultModel: string | null = null): string {
   const action = jobId ? `/jobs/${esc(jobId)}` : "/jobs";
   const title = jobId ? "Edit job" : "New job";
   return layout(
@@ -84,7 +85,7 @@ export function jobFormPage(values: FormValues, error?: string, jobId?: string):
       <h1>${esc(title.toLowerCase())}</h1>
       ${error ? `<p class="fail">${esc(error)}</p>` : ""}
       <form method="post" action="${action}">
-        ${fields(values)}
+        ${fields(values, defaultModel)}
         <button type="submit">${jobId ? "save" : "create"}</button>
       </form>
     </section>`,
@@ -157,13 +158,35 @@ export function runPage(job: JobView, run: Run, log: string): string {
       ${run.error ? `<p class="fail">${esc(run.error)}</p>` : ""}
       <h2>summary</h2>
       <pre>${esc(run.summary || "(no assistant text)")}</pre>
-      <h2>log</h2>
-      <pre class="log">${esc(log || "(empty)")}</pre>
+      <h2>output</h2>
+      ${renderTranscript(log)}
+      <details class="raw">
+        <summary>raw</summary>
+        <pre class="log">${esc(log || "(empty)")}</pre>
+      </details>
       ${pending ? `<p class="muted">This page refreshes until the run finishes.</p>` : ""}
     </section>`,
     true,
     pending,
   );
+}
+
+function renderTranscript(log: string): string {
+  const items = log.trim() ? transcriptFromLog(log) : [];
+  if (!items.length) return `<p class="muted">(empty)</p>`;
+  return `<div class="transcript">${items.map(renderItem).join("")}</div>`;
+}
+
+function renderItem(item: TranscriptItem): string {
+  if (item.kind === "chat") return `<pre class="chat">${esc(item.text)}</pre>`;
+  if (item.kind === "note") return `<pre class="note">${esc(item.text)}</pre>`;
+  if (item.kind === "stderr") return `<pre class="note fail">${esc(item.text)}</pre>`;
+  if (item.kind === "meta") return `<p class="muted">${esc(item.text)}</p>`;
+  const failed = item.status === "error";
+  const status = item.status && item.status !== "completed" ? ` <span class="${failed ? "fail" : "muted"}">${esc(item.status)}</span>` : "";
+  const call = item.call ? `<pre class="call">${esc(item.call)}</pre>` : "";
+  const output = item.output ? `<pre class="out">${esc(item.output)}</pre>` : "";
+  return `<div class="turn"><p class="tool-head"><span class="prompt">→</span> ${esc(item.name)}${status}</p>${call}${output}</div>`;
 }
 
 export function formValuesFromJob(job: JobView): FormValues {
@@ -194,15 +217,16 @@ export function formValuesFromBody(body: Record<string, string>, fallbackTimezon
   };
 }
 
-function fields(values: FormValues): string {
+function fields(values: FormValues, defaultModel: string | null = null): string {
   return `
     <label><span>name</span><input name="name" value="${esc(values.name)}" required></label>
     <label><span>schedule</span><input name="schedule" value="${esc(values.schedule)}" placeholder="0 8 * * 1-5" required></label>
     <p class="muted">Five-field cron. Weekdays at 08:00 is <code>0 8 * * 1-5</code>.</p>
-    <label><span>timezone</span><input name="timezone" value="${esc(values.timezone)}" placeholder="America/Denver" required></label>
+    <label><span>timezone</span>${timezoneSelect(values.timezone)}</label>
     <label><span>workspace folder</span><input name="workspace" value="${esc(values.workspace)}" placeholder="notes" required></label>
     <p class="muted">A folder name inside the sandbox volume, not a path on this computer.</p>
     <label><span>model</span><input name="model" value="${esc(values.model)}" placeholder="provider/model"></label>
+    ${values.model || !defaultModel ? "" : `<p class="muted">Blank uses ${esc(defaultModel)}.</p>`}
     <label><span>agent</span><input name="agent" value="${esc(values.agent)}" placeholder="optional"></label>
     <label><span>timeout seconds</span><input name="timeoutSec" type="number" min="30" max="7200" value="${esc(values.timeoutSec)}" required></label>
     <label class="check">
@@ -214,11 +238,72 @@ function fields(values: FormValues): string {
   `;
 }
 
+export function settingsPage(settings: ServerSettings, error?: string): string {
+  const go = settings.goConnected
+    ? settings.goSource === "saved"
+      ? `Connected with a key saved on this server${settings.goKeyHint ? `, ending in ${esc(settings.goKeyHint)}` : ""}.`
+      : "Connected with the key from the server environment. Paste a key to replace it."
+      : "";
+  const modelChoices = settings.models.includes(settings.defaultModel ?? "")
+    ? settings.models
+    : settings.defaultModel
+      ? [settings.defaultModel, ...settings.models]
+      : settings.models;
+  const modelField = modelChoices.length
+    ? `<select name="defaultModel">
+        <option value="" ${settings.defaultModel ? "" : "selected"}>none</option>
+        ${modelChoices
+          .map(
+            (model) =>
+              `<option value="${esc(model)}" ${model === settings.defaultModel ? "selected" : ""}>${esc(model)}</option>`,
+          )
+          .join("")}
+      </select>`
+    : `<input name="defaultModel" value="${esc(settings.defaultModel ?? "")}" placeholder="opencode-go/kimi-k3">`;
+  return layout(
+    "Settings",
+    `
+    <section box-="square" class="stack">
+      <h1>settings</h1>
+      ${error ? `<p class="fail">${esc(error)}</p>` : ""}
+      <h2>OpenCode Go</h2>
+      <p>${settings.goConnected ? badge("connected", "ok") : badge("not connected", "failed")} ${go}</p>
+      <p class="muted">Paste a key from the OpenCode Console: Account, then Personal API keys. The key stays on this server and is not shown again.</p>
+      <form method="post" action="/settings/go">
+        <label><span>API key</span><input type="password" name="apiKey" autocomplete="off"></label>
+        <button type="submit">connect</button>
+      </form>
+      ${
+        settings.goSource === "saved"
+          ? `<form method="post" action="/settings/go/disconnect"><button type="submit" variant-="foreground2">disconnect</button></form>`
+          : ""
+      }
+      ${settings.modelsError ? `<p class="fail">${esc(settings.modelsError)}</p>` : ""}
+      <h2>defaults</h2>
+      <form method="post" action="/settings">
+        <label><span>timezone</span>${timezoneSelect(settings.timezone)}</label>
+        <label><span>default model</span>${modelField}</label>
+        <p class="muted">New jobs use this timezone and model unless you choose others.</p>
+        <button type="submit">save</button>
+      </form>
+    </section>`,
+  );
+}
+
+function timezoneSelect(selected: string): string {
+  const zones = Intl.supportedValuesOf("timeZone");
+  const options = zones.includes(selected) ? zones : [selected, ...zones];
+  return `<select name="timezone" required>${options
+    .map((zone) => `<option value="${esc(zone)}" ${zone === selected ? "selected" : ""}>${esc(zone)}</option>`)
+    .join("")}</select>`;
+}
+
 function layout(title: string, body: string, authed = true, refresh = false): string {
   const nav = authed
-    ? `<header class="bar" box-="square">
-        <a class="brand" href="/">opencode cron</a>
-        <span class="muted">home server</span>
+    ? `<header class="bar">
+        <a class="brand" href="/"><span class="prompt">&gt;</span> OpenCron</a>
+        <a href="/">jobs</a>
+        <a href="/settings">settings</a>
         <span class="grow"></span>
         <form method="post" action="/logout"><button type="submit" size-="small" variant-="foreground2">log out</button></form>
       </header>`
@@ -228,11 +313,11 @@ function layout(title: string, body: string, authed = true, refresh = false): st
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#080808">
+  <meta name="theme-color" content="#0a0a0a">
   <meta name="robots" content="noindex">
   ${refresh ? '<meta http-equiv="refresh" content="2">' : ""}
-  <title>${esc(title)} · opencode cron</title>
-  <link rel="stylesheet" href="/static/app.css?v=2">
+  <title>${esc(title)} · OpenCron</title>
+  <link rel="stylesheet" href="/static/app.css?v=7">
 </head>
 <body>
   ${nav}

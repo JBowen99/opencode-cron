@@ -5,15 +5,18 @@ import { Cron } from "croner";
 import type { Config } from "./config.js";
 import { openDatabase, type Database } from "./db.js";
 import { JobError } from "./errors.js";
-import { runInSandbox } from "./sandbox-client.js";
+import { listGoModels, preferGoModels } from "./go-models.js";
+import { listSandboxModels, runInSandbox, sandboxGoConnected } from "./sandbox-client.js";
 import { nextScheduled, previousScheduled } from "./schedule.js";
-import type { Job, JobInput, JobView, Run, SandboxRequest, SandboxResult } from "./types.js";
-import { parseJobInput, parseJobPatch } from "./validate.js";
+import type { Job, JobInput, JobView, Run, SandboxRequest, SandboxResult, ServerSettings } from "./types.js";
+import { parseGoKey, parseJobInput, parseJobPatch, parseSettingsUpdate } from "./validate.js";
 
 const KEEP_RUNS = 50;
 const SUMMARY_LIMIT = 20_000;
 
 export type Runner = (input: SandboxRequest) => Promise<SandboxResult>;
+
+export type GoModels = (apiKey: string) => Promise<string[]>;
 
 export type Runtime = {
   listJobs(): JobView[];
@@ -25,13 +28,18 @@ export type Runtime = {
   requestRun(jobId: string): Run;
   listRuns(jobId: string, limit?: number): Run[];
   getRun(id: string): { run: Run; job: Job; log: string };
+  defaults(): { timezone: string; defaultModel: string | null };
+  getSettings(): Promise<ServerSettings>;
+  updateSettings(raw: { timezone?: unknown; defaultModel?: unknown }): Promise<ServerSettings>;
+  connectGo(apiKey: unknown): Promise<ServerSettings>;
+  disconnectGo(): Promise<ServerSettings>;
   start(): void;
   stop(): void;
   whenIdle(): Promise<void>;
   close(): void;
 };
 
-export function createRuntime(config: Config, runner?: Runner): Runtime {
+export function createRuntime(config: Config, runner?: Runner, goModels: GoModels = listGoModels): Runtime {
   const db = openDatabase(config.dataDir);
   const execute = runner ?? ((input: SandboxRequest) => runInSandbox(config.sandboxUrl, input));
   const timers = new Map<string, Cron>();
@@ -133,12 +141,16 @@ export function createRuntime(config: Config, runner?: Runner): Runtime {
     db.markRunning(runId, startedAt);
     console.log(`run ${runId} started for job ${job.id}`);
     try {
+      const chosen = defaults();
+      const model = job.model ?? chosen.defaultModel;
+      const apiKey = db.getSetting("go_api_key");
       const result = await execute({
         prompt: job.prompt,
         workspace: job.workspace,
-        ...(job.model ?? config.defaultModel ? { model: job.model ?? config.defaultModel ?? undefined } : {}),
+        ...(model ? { model } : {}),
         ...(job.agent ? { agent: job.agent } : {}),
         timeoutSec: job.timeoutSec,
+        ...(apiKey ? { apiKey } : {}),
       });
       const logPath = writeLog(config.dataDir, runId, result.log);
       const summary = result.summary.trim().slice(0, SUMMARY_LIMIT) || null;
@@ -189,10 +201,46 @@ export function createRuntime(config: Config, runner?: Runner): Runtime {
     return job;
   }
 
+  function defaults(): { timezone: string; defaultModel: string | null } {
+    return {
+      timezone: db.getSetting("timezone") || config.defaultTimezone,
+      defaultModel: db.getSetting("default_model") || config.defaultModel,
+    };
+  }
+
+  async function getSettings(): Promise<ServerSettings> {
+    const savedKey = db.getSetting("go_api_key");
+    const chosen = defaults();
+    let models: string[] = [];
+    let modelsError: string | null = null;
+    let goSource: ServerSettings["goSource"] = null;
+    if (savedKey) {
+      goSource = "saved";
+      try {
+        models = preferGoModels(await goModels(savedKey));
+      } catch (error) {
+        modelsError = error instanceof Error ? error.message : "Could not list OpenCode Go models";
+      }
+    } else if (await sandboxGoConnected(config.sandboxUrl)) {
+      goSource = "environment";
+      models = preferGoModels(await listSandboxModels(config.sandboxUrl));
+      if (!models.length) modelsError = "The server environment key is set, but OpenCode returned no Go models";
+    }
+    return {
+      timezone: chosen.timezone,
+      defaultModel: chosen.defaultModel,
+      goConnected: goSource !== null,
+      goSource,
+      goKeyHint: savedKey && savedKey.length >= 8 ? savedKey.slice(-4) : null,
+      models,
+      modelsError,
+    };
+  }
+
   return {
     listJobs: () => db.listJobs().map(view),
     getJob: (id) => view(requireJob(id)),
-    createJob: (raw) => view(saveNew(parseJobInput(raw, config.defaultTimezone))),
+    createJob: (raw) => view(saveNew(parseJobInput(raw, defaults().timezone))),
     updateJob: (id, raw) => {
       const current = requireJob(id);
       const input = parseJobPatch(raw, toInput(current));
@@ -242,6 +290,26 @@ export function createRuntime(config: Config, runner?: Runner): Runtime {
         }
       }
       return { run, job, log };
+    },
+    defaults,
+    getSettings,
+    updateSettings: async (raw) => {
+      const parsed = parseSettingsUpdate(raw);
+      if (parsed.timezone) db.setSetting("timezone", parsed.timezone);
+      if (parsed.defaultModel === null) db.deleteSetting("default_model");
+      else if (parsed.defaultModel) db.setSetting("default_model", parsed.defaultModel);
+      return getSettings();
+    },
+    connectGo: async (apiKey) => {
+      const key = parseGoKey(apiKey);
+      const models = preferGoModels(await goModels(key));
+      db.setSetting("go_api_key", key);
+      const settings = await getSettings();
+      return { ...settings, models: models.length ? models : settings.models, modelsError: null };
+    },
+    disconnectGo: async () => {
+      db.deleteSetting("go_api_key");
+      return getSettings();
     },
     start: () => {
       db.failStale(new Date().toISOString());

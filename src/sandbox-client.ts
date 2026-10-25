@@ -1,5 +1,28 @@
 import type { SandboxRequest, SandboxResult } from "./types.js";
 
+export async function sandboxGoConnected(sandboxUrl: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${sandboxUrl}/health`, { signal: AbortSignal.timeout(2000) });
+    if (!response.ok) return false;
+    const body = (await response.json()) as { goKey?: unknown };
+    return body.goKey === true;
+  } catch {
+    return false;
+  }
+}
+
+export async function listSandboxModels(sandboxUrl: string): Promise<string[]> {
+  try {
+    const response = await fetch(`${sandboxUrl}/models`, { signal: AbortSignal.timeout(25_000) });
+    if (!response.ok) return [];
+    const body = (await response.json()) as { models?: unknown };
+    if (!Array.isArray(body.models)) return [];
+    return body.models.filter((model): model is string => typeof model === "string");
+  } catch {
+    return [];
+  }
+}
+
 export async function runInSandbox(sandboxUrl: string, input: SandboxRequest): Promise<SandboxResult> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), (input.timeoutSec + 30) * 1000);

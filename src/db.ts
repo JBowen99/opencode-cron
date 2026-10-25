@@ -22,6 +22,9 @@ export type Database = {
   activeRun(jobId: string, status: "queued" | "running"): Run | undefined;
   runsBeyond(jobId: string, keep: number): Run[];
   deleteRun(id: string): void;
+  getSetting(key: string): string | null;
+  setSetting(key: string, value: string): void;
+  deleteSetting(key: string): void;
   close(): void;
 };
 
@@ -57,6 +60,10 @@ export function openDatabase(dataDir: string): Database {
       log_path TEXT
     );
     CREATE INDEX IF NOT EXISTS runs_job_created ON runs(job_id, created_at DESC);
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
   `);
 
   return {
@@ -153,6 +160,16 @@ export function openDatabase(dataDir: string): Database {
       ).all(jobId, jobId, keep).map(mapRun),
     deleteRun: (id) => {
       db.prepare("DELETE FROM runs WHERE id = ?").run(id);
+    },
+    getSetting: (key) => {
+      const row = db.prepare("SELECT value FROM settings WHERE key = ?").get(key);
+      return row?.value == null ? null : String(row.value);
+    },
+    setSetting: (key, value) => {
+      db.prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(key, value);
+    },
+    deleteSetting: (key) => {
+      db.prepare("DELETE FROM settings WHERE key = ?").run(key);
     },
     close: () => db.close(),
   };

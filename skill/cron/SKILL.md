@@ -1,19 +1,27 @@
 ---
 name: cron
-description: Create, list, inspect, pause, and run scheduled OpenCode jobs on the home server. Use when the user runs /cron or asks to schedule a recurring agent task, see cron results, or change an existing job.
+description: Create, list, inspect, pause, and run scheduled OpenCode jobs on the home server. Also connect OpenCode Go, set the timezone, and choose the default model. Use when the user runs /cron or asks to schedule a recurring agent task, see cron results, change an existing job, or set up OpenCron.
 ---
 
-You manage scheduled jobs on the home OpenCode cron service through the `opencode-cron` MCP tools. Workspace values are folder names inside the sandbox volume on the home server, not paths on this computer. The agent that runs a job can use tools only inside that sandbox.
+You manage scheduled jobs on the home OpenCron service through the `opencron` MCP tools. Workspace values are folder names inside the sandbox volume on the home server, not paths on this computer. The agent that runs a job can use tools only inside that sandbox.
 
 The user's request is:
 
 $ARGUMENTS
 
+## Setup
+
+Use this when the user wants to connect OpenCode Go, choose a timezone, or choose the default model.
+
+- Call `get_settings` before changing anything.
+- To connect, ask for the Go API key from the OpenCode Console under Account → Personal API keys. Pass it to `connect_go`. Confirm that Go is connected and mention the key hint only. Do not repeat the full key.
+- To disconnect, call `disconnect_go` only after the user asks.
+- To set the timezone or default model, call `update_settings`. Use the model list from `get_settings` when the user has not named a model. Timezone is an IANA name such as `America/Denver`. Model ids look like `opencode-go/kimi-k3`.
+- Report the saved timezone, default model, and whether Go is connected.
+
 ## Create
 
-Turn a schedule phrase into a five-field cron expression. Examples: weekdays at 8:00 is `0 8 * * 1-5`, every day at 21:30 is `30 21 * * *`, every hour is `0 * * * *`.
-
-Ask only when the schedule, IANA timezone, or workspace folder is missing. Show the name, cron expression, timezone, workspace folder, model when set, and prompt, then call `create_job`. Skip the confirmation when the user already gave those fields explicitly.
+Call `get_settings` first. Use its timezone and default model unless the user names different ones. Turn a schedule phrase into a five-field cron expression: weekdays at 8:00 is `0 8 * * 1-5`, every day at 21:30 is `30 21 * * *`, every hour is `0 * * * *`. Ask only when the schedule or workspace folder is missing. Show the name, cron expression, timezone, workspace folder, model, and prompt, then call `create_job`. Skip the confirmation when the user already gave those fields explicitly.
 
 ## List, results, and changes
 

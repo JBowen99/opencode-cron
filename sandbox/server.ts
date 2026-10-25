@@ -19,6 +19,7 @@ type RunBody = {
   model?: unknown;
   agent?: unknown;
   timeoutSec?: unknown;
+  apiKey?: unknown;
 };
 
 let busy = false;
@@ -37,6 +38,10 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     const url = new URL(req.url ?? "/", "http://localhost");
     if (req.method === "GET" && url.pathname === "/health") {
       send(res, 200, { ok: true, goKey: Boolean(process.env.OPENCODE_API_KEY) });
+      return;
+    }
+    if (req.method === "GET" && url.pathname === "/models") {
+      send(res, 200, { models: await listModels() });
       return;
     }
     if (req.method === "POST" && url.pathname === "/run") {
@@ -69,13 +74,14 @@ async function runJob(body: RunBody) {
   const model = typeof body.model === "string" && body.model.trim() ? body.model.trim() : defaultModel;
   const agent = typeof body.agent === "string" && body.agent.trim() ? body.agent.trim() : "";
   const dir = await prepareWorkspace(body.workspace);
+  const apiKey = typeof body.apiKey === "string" && body.apiKey.trim() ? body.apiKey.trim() : "";
 
-  const args = ["run", "--dir", dir, "--auto", "--format", "json"];
+  const args = ["run", "--auto", "--format", "json"];
   if (model) args.push("--model", model);
   if (agent) args.push("--agent", agent);
   args.push("--", body.prompt);
 
-  return spawnOpencode(args, dir, timeoutSec);
+  return spawnOpencode(args, dir, timeoutSec, apiKey);
 }
 
 async function prepareWorkspace(name: string): Promise<string> {
@@ -90,7 +96,7 @@ async function prepareWorkspace(name: string): Promise<string> {
   return dirReal;
 }
 
-function spawnOpencode(args: string[], cwd: string, timeoutSec: number) {
+function spawnOpencode(args: string[], cwd: string, timeoutSec: number, apiKey = "") {
   return new Promise<{
     ok: boolean;
     timedOut: boolean;
@@ -105,7 +111,7 @@ function spawnOpencode(args: string[], cwd: string, timeoutSec: number) {
     let settled = false;
     const child = spawn(opencodeBin, args, {
       cwd,
-      env: process.env,
+      env: apiKey ? { ...process.env, OPENCODE_API_KEY: apiKey } : process.env,
       detached: true,
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -145,6 +151,33 @@ function spawnOpencode(args: string[], cwd: string, timeoutSec: number) {
     });
     child.on("error", (error) => finish(null, error));
     child.on("close", (code) => finish(code));
+  });
+}
+
+function listModels(): Promise<string[]> {
+  return new Promise((resolve) => {
+    const child = spawn(opencodeBin, ["models"], { env: process.env, stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "";
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL");
+    }, 20_000);
+    child.stdout?.setEncoding("utf8");
+    child.stdout?.on("data", (chunk: string) => {
+      stdout += chunk;
+    });
+    child.on("error", () => {
+      clearTimeout(timer);
+      resolve([]);
+    });
+    child.on("close", () => {
+      clearTimeout(timer);
+      resolve(
+        stdout
+          .split("\n")
+          .map((line) => line.trim())
+          .filter((line) => /^[A-Za-z0-9._-]+\/[A-Za-z0-9._:-]+$/.test(line)),
+      );
+    });
   });
 }
 

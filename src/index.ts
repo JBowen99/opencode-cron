@@ -10,7 +10,7 @@ const app = createApp(config, runtime);
 mountMcp(app, runtime);
 
 const server = serve({ fetch: app.fetch, hostname: config.host, port: config.port }, (info) => {
-  console.log(`opencode-cron listening on ${info.address}:${info.port}`);
+  console.log(`OpenCron listening on ${info.address}:${info.port}`);
   runtime.start();
 });
 
