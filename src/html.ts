@@ -46,9 +46,9 @@ export function jobsPage(jobs: JobView[]): string {
         .map(
           (job) => `
         <tr>
-          <td><a href="/jobs/${esc(job.id)}">${esc(job.name)}</a></td>
+          <td class="wrap"><a href="/jobs/${esc(job.id)}">${esc(job.name)}</a></td>
           <td><code>${esc(job.schedule)}</code></td>
-          <td>${esc(job.workspace)}</td>
+          <td class="wrap">${esc(job.workspace)}</td>
           <td>${job.enabled ? esc(formatTime(job.nextRun, job.timezone)) : badge("paused", "foreground2")}</td>
           <td>${job.lastRun ? badge(job.lastRun.status) : `<span class="muted">none</span>`}</td>
         </tr>`,
@@ -66,7 +66,7 @@ export function jobsPage(jobs: JobView[]): string {
     <div class="table-wrap" box-="square">
       <table>
         <thead>
-          <tr><th>name</th><th>schedule</th><th>workspace</th><th>next</th><th>last</th></tr>
+          <tr><th class="wrap">name</th><th>schedule</th><th class="wrap">workspace</th><th>next</th><th>last</th></tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
@@ -101,7 +101,7 @@ export function jobPage(job: JobView, runs: Run[], error?: string): string {
           <td><a href="/jobs/${esc(job.id)}/runs/${esc(run.id)}">${esc(formatTime(run.createdAt, job.timezone))}</a></td>
           <td>${badge(run.status)}</td>
           <td>${esc(formatTime(run.finishedAt, job.timezone))}</td>
-          <td>${esc(preview(run.summary ?? run.error))}</td>
+          <td class="summary">${esc(preview(run.summary ?? run.error))}</td>
         </tr>`,
         )
         .join("")
@@ -137,7 +137,7 @@ export function jobPage(job: JobView, runs: Run[], error?: string): string {
       <h2>runs</h2>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>started</th><th>status</th><th>finished</th><th>summary</th></tr></thead>
+          <thead><tr><th>started</th><th>status</th><th>finished</th><th class="summary">summary</th></tr></thead>
           <tbody>${runRows}</tbody>
         </table>
       </div>
@@ -304,7 +304,6 @@ function layout(title: string, body: string, authed = true, refresh = false): st
         <a class="brand" href="/"><span class="prompt">&gt;</span> OpenCron</a>
         <a href="/">jobs</a>
         <a href="/settings">settings</a>
-        <span class="grow"></span>
         <form method="post" action="/logout"><button type="submit" size-="small" variant-="foreground2">log out</button></form>
       </header>`
     : "";
@@ -317,11 +316,13 @@ function layout(title: string, body: string, authed = true, refresh = false): st
   <meta name="robots" content="noindex">
   ${refresh ? '<meta http-equiv="refresh" content="2">' : ""}
   <title>${esc(title)} · OpenCron</title>
-  <link rel="stylesheet" href="/static/app.css?v=7">
+  <link rel="stylesheet" href="/static/app.css?v=8">
 </head>
 <body>
-  ${nav}
-  <main class="stack">${body}</main>
+  <div class="frame">
+    ${nav}
+    <main class="stack">${body}</main>
+  </div>
 </body>
 </html>`;
 }
