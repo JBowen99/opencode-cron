@@ -6,7 +6,7 @@ Coolify deploys [`compose.yaml`](compose.yaml). Removing that resource and its v
 
 ## Deploy
 
-Create a Docker Compose application in Coolify pointed at this repository. Assign the public domain to the `app` service on port `8787` only. Leave `sandbox` unpublished. Reach the domain over Tailscale, and do not port-forward it to the public internet.
+Create a Docker Compose application in Coolify pointed at this repository. Do not assign a domain. The compose file publishes `app` on host port `8787`, so the site is `http://<server-tailscale-name>:8787`. Leave `sandbox` unpublished, and do not port-forward `8787`.
 
 Set these environment variables in Coolify:
 
@@ -23,7 +23,7 @@ To see model ids available to the key:
 docker compose exec sandbox opencode models
 ```
 
-Open the Coolify domain, sign in with `CRON_TOKEN`, and open Settings. Connect an OpenCode Go API key from the Console (Account → Personal API keys), then set the timezone and default model. The same setup works from another computer with `/cron connect my Go key`, `/cron timezone America/Denver`, and `/cron use opencode-go/kimi-k3`. The key stays on the server.
+Open `http://<server-tailscale-name>:8787`, sign in with `CRON_TOKEN`, and open Settings. Connect an OpenCode Go API key from the Console (Account → Personal API keys), then set the timezone and default model. The same setup works from another computer with `/cron connect my Go key`, `/cron timezone America/Denver`, and `/cron use opencode-go/kimi-k3`. The key stays on the server.
 
 Create a job from the web UI or with `/cron`. The workspace value is a folder name inside the sandbox volume, such as `notes`. New jobs use the saved timezone and model unless you name different ones.
 
