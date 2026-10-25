@@ -67,6 +67,7 @@ main {
 .stack {
   display: grid;
   gap: 1lh;
+  align-content: start;
 }
 
 .stack > * {
@@ -300,26 +301,32 @@ textarea {
 }
 
 table {
-  width: max-content;
-  min-width: 100%;
+  width: 100%;
+  table-layout: fixed;
 }
 
 .table-wrap th,
 .table-wrap td {
   white-space: nowrap;
   vertical-align: top;
+  overflow-wrap: anywhere;
 }
 
 .table-wrap :is(th, td).wrap,
 .table-wrap :is(th, td).summary {
   white-space: normal;
-  min-width: 12ch;
-  max-width: 18ch;
 }
 
-.table-wrap :is(th, td).summary {
-  max-width: 48ch;
-}
+table.jobs col:nth-child(1) { width: 36%; }
+table.jobs col:nth-child(2) { width: 16%; }
+table.jobs col:nth-child(3) { width: 16%; }
+table.jobs col:nth-child(4) { width: 20%; }
+table.jobs col:nth-child(5) { width: 12%; }
+
+table.runs col:nth-child(1) { width: 24%; }
+table.runs col:nth-child(2) { width: 14%; }
+table.runs col:nth-child(3) { width: 24%; }
+table.runs col:nth-child(4) { width: 38%; }
 
 pre,
 pre.log {
@@ -388,6 +395,21 @@ pre.log {
 }
 
 @media (max-width: 720px) {
+  table.jobs,
+  table.runs {
+    width: max-content;
+    min-width: 100%;
+    table-layout: auto;
+  }
+
+  .table-wrap :is(th, td).wrap {
+    max-width: 18ch;
+  }
+
+  .table-wrap :is(th, td).summary {
+    max-width: 24ch;
+  }
+
   form label {
     grid-template-columns: 1fr;
     align-items: start;

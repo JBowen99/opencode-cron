@@ -64,7 +64,8 @@ export function jobsPage(jobs: JobView[]): string {
       <a is-="button" href="/jobs/new">new job</a>
     </div>
     <div class="table-wrap" box-="square">
-      <table>
+      <table class="jobs">
+        <colgroup><col><col><col><col><col></colgroup>
         <thead>
           <tr><th class="wrap">name</th><th>schedule</th><th class="wrap">workspace</th><th>next</th><th>last</th></tr>
         </thead>
@@ -136,7 +137,8 @@ export function jobPage(job: JobView, runs: Run[], error?: string): string {
     <section box-="square" class="stack">
       <h2>runs</h2>
       <div class="table-wrap">
-        <table>
+        <table class="runs">
+          <colgroup><col><col><col><col></colgroup>
           <thead><tr><th>started</th><th>status</th><th>finished</th><th class="summary">summary</th></tr></thead>
           <tbody>${runRows}</tbody>
         </table>
@@ -316,7 +318,7 @@ function layout(title: string, body: string, authed = true, refresh = false): st
   <meta name="robots" content="noindex">
   ${refresh ? '<meta http-equiv="refresh" content="2">' : ""}
   <title>${esc(title)} · OpenCron</title>
-  <link rel="stylesheet" href="/static/app.css?v=8">
+  <link rel="stylesheet" href="/static/app.css?v=9">
 </head>
 <body>
   <div class="frame">
