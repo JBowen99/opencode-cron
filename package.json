@@ -1,0 +1,29 @@
+{
+  "name": "opencode-cron",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "packageManager": "pnpm@12.11.2",
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/build-css.mjs",
+    "start": "node dist/src/index.js",
+    "sandbox": "node dist/sandbox/server.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsc -p tsconfig.test.json && node scripts/build-css.mjs && node --test dist/test/*.js"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.5",
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "croner": "^10.0.1",
+    "hono": "^4.13.13",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@webtui/css": "^0.1.10",
+    "typescript": "^7.0.2"
+  }
+}

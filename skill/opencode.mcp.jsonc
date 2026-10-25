@@ -1,0 +1,14 @@
+{
+  "mcp": {
+    "servers": {
+      "opencode-cron": {
+        "type": "remote",
+        "url": "https://<coolify-domain>/mcp",
+        "oauth": false,
+        "headers": {
+          "Authorization": "Bearer {env:OPENCODE_CRON_TOKEN}"
+        }
+      }
+    }
+  }
+}

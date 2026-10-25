@@ -1,0 +1,126 @@
+html[data-webtui-theme="opencode"] {
+  color-scheme: dark;
+  --background0: #080808;
+  --background1: #141414;
+  --background2: #242424;
+  --background3: #3a3a3a;
+  --foreground0: #f2f2f2;
+  --foreground1: #c8c8c8;
+  --foreground2: #8d8d8d;
+  --font-family: ui-monospace, "SFMono-Regular", "Cascadia Code", Menlo, Consolas, monospace;
+  --box-border-color: #3a3a3a;
+}
+
+html[data-webtui-theme="opencode"] body {
+  word-break: normal;
+  overflow-wrap: anywhere;
+  min-height: 100vh;
+  padding: 1lh 2ch 3lh;
+  background: #080808;
+}
+
+main {
+  max-width: 120ch;
+}
+
+.stack {
+  display: grid;
+  gap: 1lh;
+}
+
+.narrow {
+  max-width: 60ch;
+}
+
+.bar,
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1ch;
+  align-items: center;
+}
+
+.grow {
+  margin-left: auto;
+}
+
+.muted {
+  color: var(--foreground2);
+}
+
+.fail {
+  color: #ff8f8f;
+}
+
+form label {
+  display: grid;
+  gap: 0.35lh;
+  margin-top: 0.6lh;
+}
+
+form label span {
+  color: var(--foreground2);
+}
+
+form label.check {
+  display: flex;
+  align-items: center;
+  gap: 1ch;
+  color: var(--foreground0);
+}
+
+a.brand {
+  color: var(--foreground0);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+input,
+textarea {
+  width: min(100%, 80ch);
+  background-color: var(--background2);
+}
+
+.actions {
+  align-items: center;
+}
+
+.actions form {
+  display: flex;
+}
+
+textarea {
+  min-height: 8lh;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+}
+
+a:not([is-~="button"]) {
+  color: var(--foreground0);
+}
+
+pre.log {
+  max-height: 70vh;
+  overflow: auto;
+}
+
+[is-~="badge"][variant-="ok"] {
+  --badge-color: #3dd68c;
+  --badge-text: #08110c;
+}
+
+[is-~="badge"][variant-="running"] {
+  --badge-color: #e6c84a;
+  --badge-text: #161304;
+}
+
+[is-~="badge"][variant-="failed"] {
+  --badge-color: #ff6b6b;
+  --badge-text: #160808;
+}
