@@ -2,7 +2,8 @@ import { spawn } from "node:child_process";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { mkdir, realpath } from "node:fs/promises";
 import path from "node:path";
-import { capText, classifyOpencodeRun, parseOpencodeOutput } from "./parse.js";
+import { applyVerdict, capText, classifyOpencodeRun, parseOpencodeOutput, summaryFromPass } from "./parse.js";
+import { SUMMARY_PROMPT, SUMMARY_TIMEOUT_SEC } from "../shared/summary.js";
 import { resolveWorkspace } from "../shared/workspace.js";
 
 const MAX_BODY = 2_000_000;
@@ -81,7 +82,43 @@ async function runJob(body: RunBody) {
   if (agent) args.push("--agent", agent);
   args.push("--", body.prompt);
 
-  return spawnOpencode(args, dir, timeoutSec, apiKey);
+  const main = await spawnOpencode(args, dir, timeoutSec, apiKey);
+  const parsed = parseOpencodeOutput(main.stdout);
+  const classified = classifyOpencodeRun({
+    timedOut: main.timedOut,
+    timeoutSec,
+    spawnError: main.spawnError,
+    exitCode: main.exitCode,
+    summary: parsed.summary,
+    sessionErrors: parsed.errors,
+  });
+
+  let summary = parsed.summary;
+  let stderr = main.stderr;
+  let outcome = classified;
+  if (!main.timedOut && !main.spawnError && parsed.sessionId) {
+    const written = await summarize(parsed.sessionId, model, dir, apiKey);
+    if (written.summary) summary = written.summary;
+    if (written.error) stderr += `${stderr && !stderr.endsWith("\n") ? "\n" : ""}${written.error}\n`;
+    outcome = applyVerdict(classified, written.verdict, summary);
+  }
+
+  return {
+    ok: outcome.ok,
+    timedOut: main.timedOut,
+    exitCode: main.exitCode,
+    summary: capText(summary, 20_000),
+    error: outcome.error,
+    log: capText(`# stdout\n${main.stdout}\n# stderr\n${stderr}`, MAX_LOG),
+  };
+}
+
+async function summarize(sessionId: string, model: string, cwd: string, apiKey: string) {
+  const args = ["run", "--format", "json", "--session", sessionId];
+  if (model) args.push("--model", model);
+  args.push("--", SUMMARY_PROMPT);
+  const pass = await spawnOpencode(args, cwd, SUMMARY_TIMEOUT_SEC, apiKey);
+  return summaryFromPass({ ...pass, timeoutSec: SUMMARY_TIMEOUT_SEC });
 }
 
 async function prepareWorkspace(name: string): Promise<string> {
@@ -98,12 +135,11 @@ async function prepareWorkspace(name: string): Promise<string> {
 
 function spawnOpencode(args: string[], cwd: string, timeoutSec: number, apiKey = "") {
   return new Promise<{
-    ok: boolean;
+    stdout: string;
+    stderr: string;
     timedOut: boolean;
     exitCode: number | null;
-    summary: string;
-    error: string | null;
-    log: string;
+    spawnError: string | null;
   }>((resolve) => {
     let stdout = "";
     let stderr = "";
@@ -120,24 +156,7 @@ function spawnOpencode(args: string[], cwd: string, timeoutSec: number, apiKey =
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      const parsed = parseOpencodeOutput(stdout);
-      const classified = classifyOpencodeRun({
-        timedOut,
-        timeoutSec,
-        spawnError: spawnError?.message ?? null,
-        exitCode,
-        summary: parsed.summary,
-        sessionErrors: parsed.errors,
-      });
-      const log = capText(`# stdout\n${stdout}\n# stderr\n${stderr}`, MAX_LOG);
-      resolve({
-        ok: classified.ok,
-        timedOut,
-        exitCode,
-        summary: capText(parsed.summary, 20_000),
-        error: classified.error,
-        log,
-      });
+      resolve({ stdout, stderr, timedOut, exitCode, spawnError: spawnError?.message ?? null });
     };
 
     const timer = setTimeout(() => {

@@ -342,7 +342,8 @@ function statusVariant(status: string): string {
 
 function preview(value: string | null): string {
   if (!value) return "";
-  const line = value.replace(/\s+/g, " ").trim();
+  const first = value.split(/\r?\n/).find((line) => line.trim()) ?? "";
+  const line = first.replace(/\s+/g, " ").trim();
   return line.length > 80 ? `${line.slice(0, 77)}...` : line;
 }
 

@@ -1,4 +1,5 @@
 import { request as httpRequest, type IncomingMessage } from "node:http";
+import { SUMMARY_TIMEOUT_SEC } from "../shared/summary.js";
 import type { SandboxRequest, SandboxResult } from "./types.js";
 
 const RETRYABLE = new Set(["ECONNREFUSED", "ENOTFOUND", "EAI_AGAIN", "EHOSTUNREACH", "ENETUNREACH"]);
@@ -41,7 +42,7 @@ export async function runInSandbox(sandboxUrl: string, input: SandboxRequest): P
     const response = await sandboxFetch(`${sandboxUrl}/run`, {
       method: "POST",
       body: JSON.stringify(input),
-      timeoutMs: Math.max(1, Math.round((input.timeoutSec + 30) * 1000)),
+      timeoutMs: Math.max(1, Math.round((input.timeoutSec + SUMMARY_TIMEOUT_SEC + 30) * 1000)),
       retries: 2,
     });
     if (!response.ok) {

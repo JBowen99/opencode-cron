@@ -1,6 +1,7 @@
-export function parseOpencodeOutput(stdout: string): { summary: string; errors: string[] } {
+export function parseOpencodeOutput(stdout: string): { summary: string; errors: string[]; sessionId: string | null } {
   const texts: string[] = [];
   const errors: string[] = [];
+  let sessionId: string | null = null;
   for (const line of stdout.split(/\r?\n/)) {
     const trimmed = line.trim();
     if (!trimmed.startsWith("{")) continue;
@@ -12,13 +13,54 @@ export function parseOpencodeOutput(stdout: string): { summary: string; errors: 
     }
     if (!event || typeof event !== "object") continue;
     const record = event as Record<string, unknown>;
+    if (!sessionId && typeof record.sessionID === "string" && record.sessionID) sessionId = record.sessionID;
     if (record.type === "text") {
       const text = partText(record.part);
       if (text) texts.push(text);
     }
     if (record.type === "error") errors.push(errorText(record.error));
   }
-  return { summary: texts.join("\n\n"), errors };
+  return { summary: texts.join("\n\n"), errors, sessionId };
+}
+
+export function summaryFromPass(input: {
+  timedOut: boolean;
+  timeoutSec: number;
+  spawnError: string | null;
+  exitCode: number | null;
+  stdout: string;
+}): { summary: string; verdict: Verdict | null; error: string | null } {
+  const parsed = parseOpencodeOutput(input.stdout);
+  const none = { summary: "", verdict: null };
+  if (input.timedOut) return { ...none, error: `Summary timed out after ${input.timeoutSec} seconds` };
+  if (input.spawnError) return { ...none, error: `Summary could not start: ${input.spawnError}` };
+  if (parsed.errors.length) return { ...none, error: `Summary failed: ${parsed.errors.join("; ")}` };
+  const { verdict, summary } = readVerdict(parsed.summary);
+  if (!summary && !verdict) {
+    return { ...none, error: `Summary returned no text${input.exitCode ? ` (exit code ${input.exitCode})` : ""}` };
+  }
+  return { summary, verdict, error: null };
+}
+
+export type Verdict = "done" | "failed";
+
+const VERDICT_LINE = /^[\s*_`#>]*status\s*:\s*[\s*_`]*(done|failed)\b.*$/i;
+
+export function readVerdict(text: string): { verdict: Verdict | null; summary: string } {
+  const lines = text.trim().split(/\r?\n/);
+  const match = lines[0]?.match(VERDICT_LINE);
+  if (!match?.[1]) return { verdict: null, summary: text.trim() };
+  return { verdict: match[1].toLowerCase() as Verdict, summary: lines.slice(1).join("\n").trim() };
+}
+
+export function applyVerdict(
+  run: { ok: boolean; error: string | null },
+  verdict: Verdict | null,
+  summary: string,
+): { ok: boolean; error: string | null } {
+  if (!run.ok || verdict !== "failed") return run;
+  const headline = summary.split(/\r?\n/).find((line) => line.trim())?.trim();
+  return { ok: false, error: `The agent reported the task was not completed${headline ? `: ${headline}` : ""}` };
 }
 
 function partText(part: unknown): string {

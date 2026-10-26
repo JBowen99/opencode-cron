@@ -27,6 +27,8 @@ Open `http://<server-tailscale-name>:8787`, sign in with `CRON_TOKEN`, and open 
 
 Create a job from the web UI or with `/cron`. The workspace value is a folder name inside the sandbox volume, such as `notes`. New jobs use the saved timezone and model unless you name different ones.
 
+When a run ends, the sandbox resumes the same OpenCode session once more and asks the model for a short report: whether the task was done, a one-line outcome, and a few bullets. That report becomes the run summary. If the model says the task was not done, for example because a file was missing or a login was rejected, the run is marked failed even though OpenCode exited cleanly. The report can mark a run failed but never marks a crashed or timed-out run ok. The pass uses the job's model, adds one short model call to each run, and gets up to two minutes. If it fails, the summary falls back to the agent's own replies, the status comes from OpenCode alone, and the reason shows in the run output.
+
 `docker compose down -v` removes both containers and the `cron-data` and `cron-workspaces` volumes.
 
 ## /cron on another computer

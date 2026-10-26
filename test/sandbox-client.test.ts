@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { test } from "node:test";
+import { SUMMARY_TIMEOUT_SEC } from "../shared/summary.js";
 import { runInSandbox } from "../src/sandbox-client.js";
 import type { SandboxRequest } from "../src/types.js";
 
@@ -40,7 +41,7 @@ test("reports a timeout when the sandbox never answers", async () => {
   const server = createServer(() => {});
   await listen(server);
   try {
-    const result = await runInSandbox(url(server), request(-29));
+    const result = await runInSandbox(url(server), request(-29 - SUMMARY_TIMEOUT_SEC));
     assert.equal(result.error, "Sandbox timed out");
   } finally {
     server.close();
