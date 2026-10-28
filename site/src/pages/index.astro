@@ -1,0 +1,210 @@
+---
+import Layout from "../layouts/Layout.astro";
+
+const source = "https://github.com/JBowen99/opencode-cron";
+const deploy = `${source}#deploy`;
+---
+
+<Layout
+  title="OpenCron, OpenCode on a schedule"
+  description="OpenCron runs OpenCode jobs on a schedule in a sandbox on a home server. Each job has a workspace folder and a prompt."
+>
+  <main id="main">
+    <section class="hero">
+      <div>
+        <h1>OpenCode on a schedule.</h1>
+        <p class="lede">
+          OpenCron runs OpenCode jobs in a sandbox on a home server. Each job has a workspace folder and a prompt.
+        </p>
+        <div class="actions">
+          <a class="button" href={source} target="_blank" rel="noopener">View source</a>
+          <a class="text" href="#schedule">Example job</a>
+        </div>
+      </div>
+      <figure
+        class="screen"
+        role="img"
+        aria-label="This is the OpenCron job list. Each row shows schedule, workspace, next run, and last status."
+      >
+        <div class="app-bar">
+          <span class="app-brand"><span class="prompt" aria-hidden="true">&gt;</span> OpenCron</span>
+          <span class="app-nav"><span>jobs</span><span>settings</span></span>
+          <span class="app-logout">log out</span>
+        </div>
+        <div class="app-body">
+          <p class="app-title"><span>jobs</span><span class="app-button">new job</span></p>
+          <table class="app-table">
+            <colgroup>
+              <col class="col-name" />
+              <col class="col-schedule" />
+              <col class="col-workspace" />
+              <col class="col-next" />
+              <col class="col-last" />
+            </colgroup>
+            <thead>
+              <tr><th>name</th><th>schedule</th><th>workspace</th><th>next</th><th>last</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>morning mail</td>
+                <td><code>0 8 * * 1-5</code></td>
+                <td>notes</td>
+                <td>29 Oct 2026, 08:00</td>
+                <td><span class="badge ok">ok</span></td>
+              </tr>
+              <tr>
+                <td>invoice filing</td>
+                <td><code>0 18 * * 1-5</code></td>
+                <td>books</td>
+                <td>28 Oct 2026, 18:00</td>
+                <td><span class="badge fail">failed</span></td>
+              </tr>
+              <tr>
+                <td>weekly review</td>
+                <td><code>0 9 * * 1</code></td>
+                <td>notes</td>
+                <td><span class="muted">paused</span></td>
+                <td><span class="badge ok">ok</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </figure>
+    </section>
+
+    <section class="block" id="schedule">
+      <p class="index">01</p>
+      <div>
+        <h2>Create a job.</h2>
+        <p class="command">
+          <span class="accent">/cron</span> weekdays at 8am, timezone America/Denver, workspace notes: summarize unread mail
+        </p>
+        <p>
+          Run that command from another computer, or fill in the same fields in the browser. The workspace is a folder name inside the sandbox volume. New jobs use the timezone and model from Settings.
+        </p>
+        <div class="form-shot">
+          <p class="form-head"><span>new job</span><span>defaults from Settings</span></p>
+          <dl class="fields">
+            <div>
+              <dt>name</dt>
+              <dd>morning mail</dd>
+            </div>
+            <div>
+              <dt>schedule</dt>
+              <dd><code>0 8 * * 1-5</code></dd>
+            </div>
+            <div>
+              <dt>timezone</dt>
+              <dd>America/Denver</dd>
+            </div>
+            <div>
+              <dt>workspace folder</dt>
+              <dd>notes</dd>
+            </div>
+            <div>
+              <dt>model</dt>
+              <dd><code>opencode-go/kimi-k3</code></dd>
+            </div>
+            <div>
+              <dt>prompt</dt>
+              <dd>summarize unread mail</dd>
+            </div>
+          </dl>
+        </div>
+      </div>
+    </section>
+
+    <section class="block" id="report">
+      <p class="index">02</p>
+      <div class="split-copy">
+        <div>
+          <h2>Each run ends with a summary.</h2>
+          <p>
+            After each session, OpenCron asks the model to write a summary. It says whether the task finished and what changed. If the model reports an unfinished task, the run fails even when OpenCode exited cleanly.
+          </p>
+        </div>
+        <figure
+          class="screen run"
+          role="img"
+          aria-label="A finished OpenCron run has status ok, start and finish times, the summary, and the output."
+        >
+          <figcaption><span>run</span><span class="badge ok">ok</span></figcaption>
+          <div class="run-body">
+            <p class="run-meta">started 28 Oct 2026, 08:00</p>
+            <p class="run-meta">finished 28 Oct 2026, 08:02</p>
+            <p class="app-label">summary</p>
+            <pre class="summary">Summarized 14 unread messages into notes/today.md.
+- Skipped newsletters
+- Flagged two threads that need a reply</pre>
+            <p class="app-label">output</p>
+            <p class="tool-head"><span class="prompt" aria-hidden="true">→</span> write</p>
+            <pre class="tool-out">notes/today.md</pre>
+            <p class="run-meta">1 step · $0.0024</p>
+          </div>
+        </figure>
+      </div>
+    </section>
+
+    <section class="block" id="access">
+      <p class="index">03</p>
+      <div>
+        <h2>The browser and /cron share the same records.</h2>
+        <div class="split">
+          <article>
+            <h3>In the browser</h3>
+            <p>
+              The browser shows the job list and every run. Open a job to run it now, pause it, edit the prompt, or delete it.
+            </p>
+          </article>
+          <article>
+            <h3>From another computer</h3>
+            <p>
+              Connect OpenCode to the MCP endpoint. <code>/cron list</code> and <code>/cron results for notes</code> return the same records. A skill file makes <code>/cron</code> the short command. You can also ask in plain language.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="block" id="server">
+      <p class="index">04</p>
+      <div>
+        <h2>The scheduler stays on your machine.</h2>
+        <div class="specs">
+          <article>
+            <h3>Token</h3>
+            <p><code>CRON_TOKEN</code> signs you in to the web UI. The API and MCP accept the same token.</p>
+          </article>
+          <article>
+            <h3>Sandbox</h3>
+            <p>The agent's tools stay inside its workspace folder. The sandbox drops all capabilities and prevents privilege escalation. The app reaches it over the Compose network.</p>
+          </article>
+          <article>
+            <h3>Network</h3>
+            <p>The app serves port 8787 on a private network such as Tailscale. A Go key saved in Settings stays on the server.</p>
+          </article>
+        </div>
+        <div class="server-foot">
+          <p class="closer">
+            Deploy with the Compose file in the repository. Setup needs a token, a Go key, a timezone, and a model.
+            <a class="text" href={deploy} target="_blank" rel="noopener">Deploy notes</a>
+          </p>
+          <figure
+            class="screen settings"
+            role="img"
+            aria-label="OpenCron settings with OpenCode Go connected and a saved key. The timezone is America/Denver and the default model is opencode-go/kimi-k3."
+          >
+            <figcaption><span>settings</span></figcaption>
+            <div class="settings-body">
+              <p class="app-label">OpenCode Go</p>
+              <p><span class="badge ok">connected</span> <span class="muted">key saved on this server</span></p>
+              <p class="app-label">defaults</p>
+              <p class="setting"><span class="muted">timezone</span><span>America/Denver</span></p>
+              <p class="setting"><span class="muted">default model</span><span><code>opencode-go/kimi-k3</code></span></p>
+            </div>
+          </figure>
+        </div>
+      </div>
+    </section>
+  </main>
+</Layout>

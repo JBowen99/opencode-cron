@@ -1,0 +1,43 @@
+---
+import "@fontsource/ibm-plex-mono/latin-400.css";
+import "@fontsource/ibm-plex-mono/latin-500.css";
+import "../styles/global.css";
+
+interface Props {
+  title: string;
+  description: string;
+}
+
+const { title, description } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0a0a0a" />
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{title}</title>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <div class="page">
+      <header class="top">
+        <a class="mark" href="/"><span class="prompt" aria-hidden="true">&gt;</span> OpenCron</a>
+        <a class="text" href="https://github.com/JBowen99/opencode-cron" target="_blank" rel="noopener">source</a>
+      </header>
+      <slot />
+      <footer class="foot">
+        <p>OpenCron</p>
+        <p>
+          <a href="https://github.com/JBowen99/opencode-cron" target="_blank" rel="noopener">github.com/JBowen99/opencode-cron</a>
+        </p>
+      </footer>
+    </div>
+  </body>
+</html>

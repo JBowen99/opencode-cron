@@ -37,6 +37,11 @@ export function createApp(config: Config, runtime: Runtime, cssPath = path.join(
     return c.body(css, 200, { "content-type": "text/css; charset=utf-8", "cache-control": "no-cache" });
   });
 
+  app.get("/favicon.svg", (c) => {
+    const svg = readFileSync(path.join(path.dirname(cssPath), "favicon.svg"));
+    return c.body(svg, 200, { "content-type": "image/svg+xml", "cache-control": "public, max-age=86400" });
+  });
+
   app.get("/login", (c) => {
     if (cookieOk(c, config.token)) return c.redirect("/", 303);
     return c.html(loginPage());
@@ -62,7 +67,7 @@ export function createApp(config: Config, runtime: Runtime, cssPath = path.join(
 
   app.use("*", async (c, next) => {
     const pathname = new URL(c.req.url).pathname;
-    if (pathname === "/health" || pathname.startsWith("/static/") || pathname === "/login") {
+    if (pathname === "/health" || pathname.startsWith("/static/") || pathname === "/login" || pathname === "/favicon.svg") {
       await next();
       return;
     }

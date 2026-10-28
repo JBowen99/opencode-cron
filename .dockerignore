@@ -1,8 +1,10 @@
 node_modules
 dist
+.astro
 data
 tmp
 .git
 public/app.css
 *.log
 .env
+site

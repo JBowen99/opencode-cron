@@ -318,6 +318,7 @@ function layout(title: string, body: string, authed = true, refresh = false): st
   <meta name="robots" content="noindex">
   ${refresh ? '<meta http-equiv="refresh" content="2">' : ""}
   <title>${esc(title)} · OpenCron</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="stylesheet" href="/static/app.css?v=9">
 </head>
 <body>

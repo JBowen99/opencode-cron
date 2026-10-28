@@ -10,6 +10,7 @@ COPY shared shared
 COPY sandbox sandbox
 COPY scripts scripts
 COPY public/theme.css public/theme.css
+COPY public/favicon.svg public/favicon.svg
 RUN pnpm run build && pnpm prune --prod
 
 FROM node:22-alpine
@@ -19,6 +20,7 @@ COPY --from=build /src/package.json ./
 COPY --from=build /src/node_modules ./node_modules
 COPY --from=build /src/dist ./dist
 COPY --from=build /src/public/app.css ./public/app.css
+COPY --from=build /src/public/favicon.svg ./public/favicon.svg
 ENV NODE_ENV=production
 ENV DATA_DIR=/data
 ENV PORT=8787
