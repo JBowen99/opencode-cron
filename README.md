@@ -2,6 +2,8 @@
 
 A small home-server scheduler. Jobs run as unattended OpenCode agents inside a sandbox container, using an OpenCode Go API key. A web UI and an MCP endpoint on the app container let you create jobs, list them, and read results.
 
+The OpenCode skill and MCP config live in [`skill/`](skill).
+
 Coolify deploys [`compose.yaml`](compose.yaml). Removing that resource and its volumes deletes the database, logs, workspace files, and both containers.
 
 ## Deploy
@@ -31,7 +33,9 @@ When a run ends, the sandbox resumes the same OpenCode session once more and ask
 
 `docker compose down -v` removes both containers and the `cron-data` and `cron-workspaces` volumes.
 
-## /cron on another computer
+## Skill and MCP
+
+The `/cron` skill is [`skill/cron/SKILL.md`](skill/cron/SKILL.md). The MCP config is [`skill/opencode.mcp.jsonc`](skill/opencode.mcp.jsonc). Neither is installed automatically.
 
 Merge [`skill/opencode.mcp.jsonc`](skill/opencode.mcp.jsonc) into the global OpenCode config, replace the domain, and export `OPENCODE_CRON_TOKEN` with the same value as `CRON_TOKEN`. Connecting to the MCP server is enough. OpenCode adds the server instructions to the session, and `/opencron:cron` runs the same workflow as a prompt.
 
